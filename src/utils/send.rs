@@ -4,13 +4,24 @@ use serenity::all::{Color, CreateEmbed};
 
 #[async_trait]
 pub trait ContextExt {
-    async fn send_embed(
+    async fn send_info(
         &self,
         title: impl Into<String> + Send,
         description: impl Into<String> + Send,
     ) -> Result<(), Error>;
 
-    async fn send_error(&self, description: impl Into<String> + Send) -> Result<(), Error>;
+    #[allow(dead_code)]
+    async fn send_warning(
+        &self,
+        title: impl Into<String> + Send,
+        description: impl Into<String> + Send,
+    ) -> Result<(), Error>;
+
+    async fn send_error(
+        &self,
+        title: impl Into<String> + Send,
+        description: impl Into<String> + Send,
+    ) -> Result<(), Error>;
 }
 
 #[async_trait]
@@ -19,7 +30,7 @@ where
     U: Sync + Send,
     E: Sync + Send,
 {
-    async fn send_embed(
+    async fn send_info(
         &self,
         title: impl Into<String> + Send,
         description: impl Into<String> + Send,
@@ -38,12 +49,34 @@ where
         Ok(())
     }
 
-    async fn send_error(&self, description: impl Into<String> + Send) -> Result<(), Error> {
+    async fn send_warning(
+        &self,
+        title: impl Into<String> + Send,
+        description: impl Into<String> + Send,
+    ) -> Result<(), Error> {
+        self.send(
+            poise::CreateReply::default().embed(
+                CreateEmbed::new()
+                    .title(format!("Warning: {}", title.into()))
+                    .description(description)
+                    .color(Color::ORANGE),
+            ),
+        )
+        .await?;
+
+        Ok(())
+    }
+
+    async fn send_error(
+        &self,
+        title: impl Into<String> + Send,
+        description: impl Into<String> + Send,
+    ) -> Result<(), Error> {
         self.send(
             poise::CreateReply::default()
                 .embed(
                     CreateEmbed::new()
-                        .title("Error")
+                        .title(format!("Error: {}", title.into()))
                         .description(description)
                         .color(Color::RED),
                 )
