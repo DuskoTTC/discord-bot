@@ -22,8 +22,9 @@ pub type Context<'a> = poise::Context<'a, Data, Error>;
 
 #[tokio::main]
 async fn main() {
-    dotenv::dotenv().expect("Faied to load .env file. Please create one with DISCORD_TOKEN.");
-    let token = env::var("DISCORD_TOKEN").expect("DISCORD_TOKEN must be set.");
+    let _ = dotenv::dotenv();
+    let token =
+        env::var("DISCORD_TOKEN").expect("DISCORD_TOKEN must be set in environment or .env file.");
     let intents = serenity::GatewayIntents::non_privileged()
         | serenity::GatewayIntents::GUILD_VOICE_STATES
         | serenity::GatewayIntents::MESSAGE_CONTENT;
