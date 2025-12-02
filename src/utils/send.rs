@@ -1,23 +1,62 @@
 use crate::Error;
-use poise::{CreateReply, async_trait};
-use serenity::all::{Color, CreateEmbed};
+use poise::{CreateReply, ReplyHandle, async_trait};
+use serenity::all::{Color, CreateEmbed, EditInteractionResponse};
+
+pub fn make_info_embed(title: impl Into<String>, description: impl Into<String>) -> CreateEmbed {
+    CreateEmbed::new()
+        .title(title)
+        .description(description)
+        .color(Color::BLUE)
+}
+
+pub fn make_warning_embed(title: impl Into<String>, description: impl Into<String>) -> CreateEmbed {
+    CreateEmbed::new()
+        .title(title)
+        .description(description)
+        .color(Color::ORANGE)
+}
+
+pub fn make_error_embed(title: impl Into<String>, description: impl Into<String>) -> CreateEmbed {
+    CreateEmbed::new()
+        .title(title)
+        .description(description)
+        .color(Color::RED)
+}
 
 #[async_trait]
-pub trait ContextExt {
+pub trait ContextExt<'a> {
     async fn send_info(
         &self,
         title: impl Into<String> + Send,
         description: impl Into<String> + Send,
-    ) -> Result<(), Error>;
+    ) -> Result<ReplyHandle<'a>, Error>;
 
     #[allow(dead_code)]
     async fn send_warning(
         &self,
         title: impl Into<String> + Send,
         description: impl Into<String> + Send,
-    ) -> Result<(), Error>;
+    ) -> Result<ReplyHandle<'a>, Error>;
 
     async fn send_error(
+        &self,
+        title: impl Into<String> + Send,
+        description: impl Into<String> + Send,
+    ) -> Result<ReplyHandle<'a>, Error>;
+
+    async fn update_info(
+        &self,
+        title: impl Into<String> + Send,
+        description: impl Into<String> + Send,
+    ) -> Result<(), Error>;
+
+    async fn update_warning(
+        &self,
+        title: impl Into<String> + Send,
+        description: impl Into<String> + Send,
+    ) -> Result<(), Error>;
+
+    async fn update_error(
         &self,
         title: impl Into<String> + Send,
         description: impl Into<String> + Send,
@@ -25,7 +64,7 @@ pub trait ContextExt {
 }
 
 #[async_trait]
-impl<U, E> ContextExt for poise::Context<'_, U, E>
+impl<'a, U, E> ContextExt<'a> for poise::Context<'a, U, E>
 where
     U: Sync + Send,
     E: Sync + Send,
@@ -34,56 +73,86 @@ where
         &self,
         title: impl Into<String> + Send,
         description: impl Into<String> + Send,
-    ) -> Result<(), Error> {
-        self.send(
-            CreateReply::default()
-                .embed(
-                    CreateEmbed::new()
-                        .title(title)
-                        .description(description)
-                        .color(Color::BLUE),
-                )
-                .reply(true),
-        )
-        .await?;
-        Ok(())
+    ) -> Result<ReplyHandle<'a>, Error> {
+        self.send(CreateReply::default().embed(make_info_embed(title, description)))
+            .await
+            .map_err(Into::into)
     }
 
     async fn send_warning(
         &self,
         title: impl Into<String> + Send,
         description: impl Into<String> + Send,
-    ) -> Result<(), Error> {
-        self.send(
-            poise::CreateReply::default().embed(
-                CreateEmbed::new()
-                    .title(format!("Warning: {}", title.into()))
-                    .description(description)
-                    .color(Color::ORANGE),
-            ),
-        )
-        .await?;
-
-        Ok(())
+    ) -> Result<ReplyHandle<'a>, Error> {
+        self.send(CreateReply::default().embed(make_warning_embed(title, description)))
+            .await
+            .map_err(Into::into)
     }
 
     async fn send_error(
         &self,
         title: impl Into<String> + Send,
         description: impl Into<String> + Send,
+    ) -> Result<ReplyHandle<'a>, Error> {
+        self.send(CreateReply::default().embed(make_error_embed(title, description)))
+            .await
+            .map_err(Into::into)
+    }
+
+    async fn update_info(
+        &self,
+        title: impl Into<String> + Send,
+        description: impl Into<String> + Send,
     ) -> Result<(), Error> {
-        self.send(
-            poise::CreateReply::default()
-                .embed(
-                    CreateEmbed::new()
-                        .title(format!("Error: {}", title.into()))
-                        .description(description)
-                        .color(Color::RED),
-                )
-                .ephemeral(true)
-                .reply(true),
-        )
-        .await?;
+        match self {
+            poise::Context::Application(ctx) => {
+                let embed = make_info_embed(&title.into(), &description.into());
+                let builder = EditInteractionResponse::new().embed(embed);
+
+                ctx.interaction.edit_response(ctx, builder).await?;
+            }
+            poise::Context::Prefix(_) => {
+                self.send_info(title, description).await?;
+            }
+        }
+        Ok(())
+    }
+
+    async fn update_warning(
+        &self,
+        title: impl Into<String> + Send,
+        description: impl Into<String> + Send,
+    ) -> Result<(), Error> {
+        match self {
+            poise::Context::Application(ctx) => {
+                let embed = make_warning_embed(&title.into(), &description.into());
+                let builder = EditInteractionResponse::new().embed(embed);
+
+                ctx.interaction.edit_response(ctx, builder).await?;
+            }
+            poise::Context::Prefix(_) => {
+                self.send_info(title, description).await?;
+            }
+        }
+        Ok(())
+    }
+
+    async fn update_error(
+        &self,
+        title: impl Into<String> + Send,
+        description: impl Into<String> + Send,
+    ) -> Result<(), Error> {
+        match self {
+            poise::Context::Application(ctx) => {
+                let embed = make_error_embed(&title.into(), &description.into());
+                let builder = EditInteractionResponse::new().embed(embed);
+
+                ctx.interaction.edit_response(ctx, builder).await?;
+            }
+            poise::Context::Prefix(_) => {
+                self.send_error(title, description).await?;
+            }
+        }
         Ok(())
     }
 }
